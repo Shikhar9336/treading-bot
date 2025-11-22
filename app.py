@@ -7,17 +7,24 @@ from plotly.subplots import make_subplots
 import google.generativeai as genai
 
 # --- पेज सेटिंग ---
-st.set_page_config(page_title="Super AI Trading Bot", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="Shikhar Market Bot", page_icon="🚀", layout="wide")
 
-st.title("🚀 AI सुपर ट्रेडिंग डैशबोर्ड")
-st.markdown("### चार्ट्स, सिग्नल्स और AI रिसर्च")
+# --- ऑटोमैटिक API Key सेटअप ---
+# यह कोड चेक करेगा कि क्या Secrets में चाबी रखी है
+api_key = None
+if "GOOGLE_API_KEY" in st.secrets:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+else:
+    # अगर Secrets खाली है, तो साइडबार दिखाओ (बैकअप के लिए)
+    st.sidebar.warning("⚠️ Secrets सेटिंग नहीं मिली। साइडबार में Key डालें।")
+    api_key = st.sidebar.text_input("Google API Key:", type="password")
 
-# --- साइडबार ---
-st.sidebar.header("🔑 AI चाबी (API Key)")
-api_key = st.sidebar.text_input("Google API Key पेस्ट करें:", type="password")
+# --- मेन ऐप ---
+st.title("🚀 शिखर तिवारी (ईशान पंडित) - AI ट्रेडिंग बॉट")
+st.markdown("### स्टॉक एनालिसिस और AI रिसर्च")
 
-st.sidebar.markdown("---")
-st.sidebar.header("⚙️ चार्ट सेटिंग्स")
+# --- साइडबार सेटिंग्स ---
+st.sidebar.header("⚙️ सेटिंग्स")
 option = st.sidebar.selectbox("शेयर चुनें:", ("NIFTY 50", "BANK NIFTY", "SENSEX", "Custom Stock"))
 
 symbol = ""
@@ -31,40 +38,33 @@ else:
 timeframe = st.sidebar.selectbox("टाइमफ्रेम:", ("1 Day", "1 Hour", "15 Minutes"))
 
 # --- टैब्स ---
-tab1, tab2 = st.tabs(["📊 टेक्निकल चार्ट", "🤖 AI चैटबॉट"])
+tab1, tab2 = st.tabs(["📊 चार्ट & सिग्नल्स", "🤖 AI से बात करें"])
 
 # ==========================================
-# TAB 1: चार्ट और डेटा
+# TAB 1: चार्ट
 # ==========================================
 with tab1:
-    if st.button("चार्ट अपडेट करें 🔄"):
+    if st.button("मार्केट चेक करें 🔄"):
         with st.spinner('डेटा लोड हो रहा है...'):
             try:
-                # टाइमफ्रेम सेट करना
                 period = "1y"
                 interval = "1d"
-                if "1 Hour" in timeframe: 
-                    period = "1mo"
-                    interval = "1h"
-                elif "15 Minutes" in timeframe: 
-                    period = "5d"
-                    interval = "15m"
+                if "1 Hour" in timeframe: period, interval = "1mo", "1h"
+                elif "15 Minutes" in timeframe: period, interval = "5d", "15m"
 
-                # डेटा डाउनलोड
                 ticker = yf.Ticker(symbol)
                 df = ticker.history(period=period, interval=interval)
                 
                 if df.empty:
-                    st.error("❌ डेटा नहीं मिला। सिंबल चेक करें।")
+                    st.error("❌ डेटा नहीं मिला।")
                 else:
-                    # इंडिकेटर्स
                     df['EMA_9'] = df.ta.ema(length=9)
                     df['EMA_21'] = df.ta.ema(length=21)
                     df['RSI'] = df.ta.rsi(length=14)
                     
                     current_price = float(df['Close'].iloc[-1])
                     curr = df.iloc[-1]
-
+                    
                     # सिग्नल
                     signal = "HOLD ⏸️"
                     color = "blue"
@@ -75,7 +75,6 @@ with tab1:
                         signal = "SELL 🔴"
                         color = "red"
 
-                    # डिस्प्ले
                     c1, c2 = st.columns([1, 3])
                     with c1:
                         st.metric("भाव", f"₹{current_price:.2f}")
@@ -85,7 +84,6 @@ with tab1:
                         st.write(f"RSI: {curr['RSI']:.2f}")
                     
                     with c2:
-                        # चार्ट
                         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
                         fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
                         fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange'), name="EMA 9"), row=1, col=1)
@@ -95,7 +93,6 @@ with tab1:
                         fig.add_hline(y=30, line_dash="dot", row=2, col=1, line_color="green")
                         fig.update_layout(height=500, xaxis_rangeslider_visible=False)
                         st.plotly_chart(fig, use_container_width=True)
-
             except Exception as e:
                 st.error(f"Error: {e}")
 
@@ -103,11 +100,7 @@ with tab1:
 # TAB 2: AI चैटबॉट (Gemini Pro)
 # ==========================================
 with tab2:
-    st.header("🤖 AI एक्सपर्ट")
-    
-    # API Key Warning
-    if not api_key:
-        st.warning("⚠️ पहले साइडबार में API Key डालें।")
+    st.header("🤖 ईशान पंडित AI")
     
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -126,14 +119,14 @@ with tab2:
         if api_key:
             try:
                 genai.configure(api_key=api_key)
-                
-                # --- CHANGE: Using 'gemini-pro' (Most Stable Model) ---
                 model = genai.GenerativeModel("gemini-pro")
                 
                 with st.chat_message("assistant"):
-                    with st.spinner("AI सोच रहा है..."):
+                    with st.spinner("AI रिसर्च कर रहा है..."):
                         response = model.generate_content(prompt)
                         st.markdown(response.text)
                         st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"API Error: {e}")
+        else:
+            st.error("❌ चाबी नहीं मिली! कृपया Secrets सेटिंग्स चेक करें।")
