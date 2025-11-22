@@ -1,6 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
+import pandas as pd  # <-- यह लाइन जोड़ दी गई है
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import google.generativeai as genai
@@ -51,27 +52,36 @@ with tab1:
                 if df.empty:
                     st.error("❌ डेटा नहीं मिला")
                 else:
-                    # --- कैलकुलेशन (जादू) ---
+                    # --- कैलकुलेशन ---
                     df['EMA_9'] = df.ta.ema(length=9)
                     df['EMA_21'] = df.ta.ema(length=21)
                     df['RSI'] = df.ta.rsi(length=14)
-                    df['ATR'] = df.ta.atr(length=14) # स्टॉप लॉस के लिए
+                    df['ATR'] = df.ta.atr(length=14)
                     
                     curr = df.iloc[-1]
                     price = float(curr['Close'])
-                    atr = float(curr['ATR']) if not pd.isna(curr['ATR']) else price * 0.01
+                    
+                    # ATR चेक (यहीं पर Error था, अब ठीक है)
+                    atr = 0
+                    if 'ATR' in df.columns and not pd.isna(curr['ATR']):
+                        atr = float(curr['ATR'])
+                    else:
+                        atr = price * 0.01
                     
                     # सिग्नल लॉजिक
                     trend = "SIDEWAYS ⏸️"
                     action = "WAIT (इंतजार करें)"
                     color = "blue"
                     
+                    sl = 0.0
+                    tgt = 0.0
+                    
                     if curr['EMA_9'] > curr['EMA_21']:
                         trend = "UPTREND 🟢"
                         action = "BUY (खरीदें)"
                         color = "green"
-                        sl = price - (atr * 1.5)  # थोड़ा नीचे Stop Loss
-                        tgt = price + (atr * 3.0) # ऊपर Target
+                        sl = price - (atr * 1.5)
+                        tgt = price + (atr * 3.0)
                     elif curr['EMA_9'] < curr['EMA_21']:
                         trend = "DOWNTREND 🔴"
                         action = "SELL (बेचें)"
@@ -79,7 +89,7 @@ with tab1:
                         sl = price + (atr * 1.5)
                         tgt = price - (atr * 3.0)
                     
-                    # --- रिजल्ट कार्ड (Result Card) ---
+                    # --- रिजल्ट कार्ड ---
                     st.markdown(f"""
                     <div style="padding: 20px; background-color: {'#e6fffa' if color == 'green' else '#fff5f5' if color == 'red' else '#f0f9ff'}; border-radius: 10px; border: 2px solid {color};">
                         <h2 style="color: {color}; text-align: center;">ACTION: {action}</h2>
@@ -87,30 +97,31 @@ with tab1:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    st.write("") # Space
+                    st.write("")
                     
-                    # 3 बड़े डिब्बे (Columns)
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("🛑 Stop Loss (SL)", f"₹{sl:.2f}", delta_color="inverse")
-                    c2.metric("🎯 Target (TGT)", f"₹{tgt:.2f}")
-                    c3.metric("📈 Trend Strength (RSI)", f"{curr['RSI']:.2f}")
-                    
-                    if color == "green":
-                        st.success(f"💡 **सलाह:** मार्केट ऊपर जा रहा है। ₹{sl:.2f} का स्टॉप लॉस लगाकर खरीद सकते हैं।")
-                    elif color == "red":
-                        st.error(f"💡 **सलाह:** मार्केट गिर रहा है। ₹{sl:.2f} का स्टॉप लॉस लगाकर बेच (Short) सकते हैं।")
+                    # लेवल्स दिखाएं
+                    if color != "blue":
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("🛑 Stop Loss (SL)", f"₹{sl:.2f}", delta_color="inverse")
+                        c2.metric("🎯 Target (TGT)", f"₹{tgt:.2f}")
+                        c3.metric("📈 RSI Strength", f"{curr['RSI']:.2f}")
+                        
+                        if color == "green":
+                            st.success(f"✅ **सलाह:** ₹{sl:.2f} के स्टॉप लॉस के साथ खरीद सकते हैं।")
+                        else:
+                            st.error(f"✅ **सलाह:** ₹{sl:.2f} के स्टॉप लॉस के साथ बेच सकते हैं।")
                     else:
-                        st.info("💡 **सलाह:** अभी मार्केट में कोई साफ ट्रेंड नहीं है। ट्रेड न लें।")
+                        st.info("⚠️ अभी ट्रेड न लें, मार्केट साइडवेज है।")
 
                     st.markdown("---")
                     
                     # चार्ट
                     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
                     fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close']), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange', width=2), name="EMA 9 (Fast)"), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue', width=2), name="EMA 21 (Slow)"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange'), name="EMA 9"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue'), name="EMA 21"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple'), name="RSI"), row=2, col=1)
-                    fig.add_hline(y=70, line_dash="dot", row=2, col=1, line_color="red"); fig.add_hline(y=30, line_dash="dot", row=2, col=1, line_color="green")
+                    fig.add_hline(y=70, line_dash="dot", row=2, col=1); fig.add_hline(y=30, line_dash="dot", row=2, col=1)
                     fig.update_layout(height=600, xaxis_rangeslider_visible=False)
                     st.plotly_chart(fig, use_container_width=True)
 
@@ -122,7 +133,7 @@ with tab2:
     if "messages" not in st.session_state: st.session_state.messages = []
     for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
     
-    if prompt := st.chat_input("पूछें: 'Tata Motors का सपोर्ट और रेजिस्टेंस क्या है?'"):
+    if prompt := st.chat_input("सवाल पूछें..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
         try:
