@@ -34,7 +34,7 @@ timeframe = st.sidebar.selectbox("टाइमफ्रेम:", ("1 Day", "1 Ho
 tab1, tab2 = st.tabs(["📊 टेक्निकल चार्ट & सिग्नल्स", "🤖 AI से सवाल पूछें (Chat)"])
 
 # ==========================================
-# TAB 1: टेक्निकल चार्ट (FIXED CODE)
+# TAB 1: टेक्निकल चार्ट
 # ==========================================
 with tab1:
     if st.button("चार्ट अपडेट करें 🔄"):
@@ -46,7 +46,7 @@ with tab1:
                 if "1 Hour" in timeframe: period, interval = "1mo", "1h"
                 elif "15 Minutes" in timeframe: period, interval = "5d", "15m"
 
-                # --- FIX: डेटा लाने का सुरक्षित तरीका ---
+                # डेटा डाउनलोड (Fix)
                 ticker = yf.Ticker(symbol)
                 df = ticker.history(period=period, interval=interval)
                 
@@ -83,16 +83,12 @@ with tab1:
                     
                     with c2:
                         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
-                        # चार्ट में कैंडलस्टिक
                         fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
-                        # इंडिकेटर लाइन्स
                         fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange', width=1), name="EMA 9"), row=1, col=1)
                         fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue', width=1), name="EMA 21"), row=1, col=1)
-                        # RSI
                         fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple', width=2), name="RSI"), row=2, col=1)
                         fig.add_hline(y=70, line_dash="dot", row=2, col=1, line_color="red")
                         fig.add_hline(y=30, line_dash="dot", row=2, col=1, line_color="green")
-                        
                         fig.update_layout(height=500, xaxis_rangeslider_visible=False)
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -100,12 +96,11 @@ with tab1:
                 st.error(f"तकनीकी एरर: {e}")
 
 # ==========================================
-# TAB 2: AI चैटबॉट
+# TAB 2: AI चैटबॉट (FIXED MODEL)
 # ==========================================
 with tab2:
     st.header("🤖 शेयर मार्केट एक्सपर्ट से पूछें")
     
-    # API Key चेक
     if not api_key:
         st.warning("⚠️ पहले साइडबार (Sidebar) में अपनी Google API Key डालें।")
     
@@ -126,7 +121,8 @@ with tab2:
         if api_key:
             try:
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                # --- CHANGE: Using standard model ---
+                model = genai.GenerativeModel("gemini-pro")
                 full_prompt = f"You are a helpful Indian Stock Market Expert. Answer this question in Hindi (Hinglish) clearly: {prompt}"
                 
                 with st.chat_message("assistant"):
