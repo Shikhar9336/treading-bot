@@ -1,12 +1,13 @@
 import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
-import pandas as pd  # <-- यह लाइन जोड़ दी गई है
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import google.generativeai as genai
 
-st.set_page_config(page_title="Shikhar Trading Pro", page_icon="💰", layout="wide")
+# --- पेज का नाम (Browser Title) ---
+st.set_page_config(page_title="Shikhar Trading Bot", page_icon="💰", layout="wide")
 
 # --- API KEY ---
 api_key = "AIzaSyDKx2IgsHmnCDYm7IDqUXzr9Yfu9yuFgls"
@@ -17,7 +18,9 @@ try:
 except:
     pass
 
-st.title("💰 शिखर तिवारी - प्रो ट्रेडिंग सिग्नल")
+# --- मेन हेडिंग (Website Name) ---
+st.title("💰 Shikhar Trading Bot")
+st.markdown("### लाइव मार्केट एनालिसिस (1 Min to 1 Day)")
 
 # --- साइडबार ---
 st.sidebar.header("⚙️ मार्केट चुनें")
@@ -35,22 +38,36 @@ else:
     elif "Bit" in option: symbol = "BTC-USD"
     elif "Gold" in option: symbol = "GC=F"
 
-timeframe = st.sidebar.selectbox("टाइमफ्रेम (Trading Style):", ("1 Day (Swing)", "1 Hour (Short Term)", "15 Minutes (Intraday)"))
+# --- टाइमफ्रेम (1 Minute Added) ---
+timeframe = st.sidebar.selectbox("टाइमफ्रेम:", ("1 Minute (Scalping)", "15 Minutes (Intraday)", "1 Hour (Short Term)", "1 Day (Swing)"))
 
 # --- टैब्स ---
-tab1, tab2 = st.tabs(["⚡ सिग्नल्स & लेवल्स", "🤖 AI गुरुजी"])
+tab1, tab2 = st.tabs(["⚡ सिग्नल्स (Live)", "🤖 AI गुरुजी"])
 
 # TAB 1: सिग्नल्स
 with tab1:
-    if st.button("सिग्नल दिखाओ 🚀"):
-        with st.spinner('मार्केट को स्कैन किया जा रहा है...'):
+    if st.button("स्कैन करें 🚀"):
+        with st.spinner('डेटा आ रहा है...'):
             try:
+                # --- टाइमफ्रेम लॉजिक (1 Min Added) ---
+                period = "1y"
+                interval = "1d"
+                
+                if "1 Minute" in timeframe:
+                    period = "1d"   # 1 मिनट के लिए सिर्फ आज का डेटा (ताकि फास्ट चले)
+                    interval = "1m"
+                elif "15 Minutes" in timeframe:
+                    period = "5d"
+                    interval = "15m"
+                elif "1 Hour" in timeframe:
+                    period = "1mo"
+                    interval = "1h"
+
                 # डेटा लाओ
-                p, i = ("1mo", "1h") if "1 Hour" in timeframe else ("5d", "15m") if "15 Minutes" in timeframe else ("1y", "1d")
-                df = yf.Ticker(symbol).history(period=p, interval=i)
+                df = yf.Ticker(symbol).history(period=period, interval=interval)
                 
                 if df.empty:
-                    st.error("❌ डेटा नहीं मिला")
+                    st.error("❌ डेटा नहीं मिला (मार्केट बंद हो सकता है)")
                 else:
                     # --- कैलकुलेशन ---
                     df['EMA_9'] = df.ta.ema(length=9)
@@ -61,7 +78,7 @@ with tab1:
                     curr = df.iloc[-1]
                     price = float(curr['Close'])
                     
-                    # ATR चेक (यहीं पर Error था, अब ठीक है)
+                    # ATR फिक्स
                     atr = 0
                     if 'ATR' in df.columns and not pd.isna(curr['ATR']):
                         atr = float(curr['ATR'])
@@ -69,21 +86,17 @@ with tab1:
                         atr = price * 0.01
                     
                     # सिग्नल लॉजिक
-                    trend = "SIDEWAYS ⏸️"
                     action = "WAIT (इंतजार करें)"
                     color = "blue"
-                    
                     sl = 0.0
                     tgt = 0.0
                     
                     if curr['EMA_9'] > curr['EMA_21']:
-                        trend = "UPTREND 🟢"
                         action = "BUY (खरीदें)"
                         color = "green"
                         sl = price - (atr * 1.5)
                         tgt = price + (atr * 3.0)
                     elif curr['EMA_9'] < curr['EMA_21']:
-                        trend = "DOWNTREND 🔴"
                         action = "SELL (बेचें)"
                         color = "red"
                         sl = price + (atr * 1.5)
@@ -93,43 +106,35 @@ with tab1:
                     st.markdown(f"""
                     <div style="padding: 20px; background-color: {'#e6fffa' if color == 'green' else '#fff5f5' if color == 'red' else '#f0f9ff'}; border-radius: 10px; border: 2px solid {color};">
                         <h2 style="color: {color}; text-align: center;">ACTION: {action}</h2>
-                        <h3 style="text-align: center;">अभी का भाव: ₹{price:.2f}</h3>
+                        <h3 style="text-align: center;">LTP: ₹{price:.2f}</h3>
                     </div>
                     """, unsafe_allow_html=True)
                     
                     st.write("")
                     
-                    # लेवल्स दिखाएं
                     if color != "blue":
                         c1, c2, c3 = st.columns(3)
-                        c1.metric("🛑 Stop Loss (SL)", f"₹{sl:.2f}", delta_color="inverse")
-                        c2.metric("🎯 Target (TGT)", f"₹{tgt:.2f}")
-                        c3.metric("📈 RSI Strength", f"{curr['RSI']:.2f}")
-                        
-                        if color == "green":
-                            st.success(f"✅ **सलाह:** ₹{sl:.2f} के स्टॉप लॉस के साथ खरीद सकते हैं।")
-                        else:
-                            st.error(f"✅ **सलाह:** ₹{sl:.2f} के स्टॉप लॉस के साथ बेच सकते हैं।")
-                    else:
-                        st.info("⚠️ अभी ट्रेड न लें, मार्केट साइडवेज है।")
+                        c1.metric("🛑 SL", f"{sl:.2f}")
+                        c2.metric("🎯 TARGET", f"{tgt:.2f}")
+                        c3.metric("RSI", f"{curr['RSI']:.2f}")
 
                     st.markdown("---")
                     
                     # चार्ट
                     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
-                    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close']), row=1, col=1)
+                    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange'), name="EMA 9"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue'), name="EMA 21"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple'), name="RSI"), row=2, col=1)
                     fig.add_hline(y=70, line_dash="dot", row=2, col=1); fig.add_hline(y=30, line_dash="dot", row=2, col=1)
-                    fig.update_layout(height=600, xaxis_rangeslider_visible=False)
+                    fig.update_layout(height=600, xaxis_rangeslider_visible=False, title=f"{symbol} ({timeframe})")
                     st.plotly_chart(fig, use_container_width=True)
 
             except Exception as e: st.error(f"तकनीकी खराबी: {e}")
 
 # TAB 2: AI चैट
 with tab2:
-    st.header("🤖 ट्रेडिंग गुरु")
+    st.header("🤖 Shikhar Bot AI")
     if "messages" not in st.session_state: st.session_state.messages = []
     for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
     
