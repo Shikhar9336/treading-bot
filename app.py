@@ -7,21 +7,17 @@ from plotly.subplots import make_subplots
 import google.generativeai as genai
 
 # --- पेज सेटिंग ---
-st.set_page_config(page_title="Shikhar Market Bot", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="Shikhar AI Bot", page_icon="🚀", layout="wide")
 
-# --- ऑटोमैटिक API Key सेटअप ---
-# यह कोड चेक करेगा कि क्या Secrets में चाबी रखी है
-api_key = None
-if "GOOGLE_API_KEY" in st.secrets:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-else:
-    # अगर Secrets खाली है, तो साइडबार दिखाओ (बैकअप के लिए)
-    st.sidebar.warning("⚠️ Secrets सेटिंग नहीं मिली। साइडबार में Key डालें।")
-    api_key = st.sidebar.text_input("Google API Key:", type="password")
+# ==========================================
+# 🔑 DIRECT API KEY (ब्रह्मास्त्र तरीका)
+# ==========================================
+# हमने आपकी चाबी सीधे यहाँ लिख दी है ताकि कोई एरर न आए
+api_key = "AIzaSyDKx2IgsHmnCDYm7IDqUXzr9Yfu9yuFgls"
 
-# --- मेन ऐप ---
-st.title("🚀 शिखर तिवारी (ईशान पंडित) - AI ट्रेडिंग बॉट")
-st.markdown("### स्टॉक एनालिसिस और AI रिसर्च")
+# --- ऐप का टाइटल ---
+st.title("🚀 शिखर तिवारी - AI ट्रेडिंग बॉट")
+st.markdown("### चार्ट्स, सिग्नल्स और AI रिसर्च")
 
 # --- साइडबार सेटिंग्स ---
 st.sidebar.header("⚙️ सेटिंग्स")
@@ -38,14 +34,14 @@ else:
 timeframe = st.sidebar.selectbox("टाइमफ्रेम:", ("1 Day", "1 Hour", "15 Minutes"))
 
 # --- टैब्स ---
-tab1, tab2 = st.tabs(["📊 चार्ट & सिग्नल्स", "🤖 AI से बात करें"])
+tab1, tab2 = st.tabs(["📊 चार्ट & सिग्नल्स", "🤖 AI चैट (बातचीत)"])
 
 # ==========================================
-# TAB 1: चार्ट
+# TAB 1: टेक्निकल चार्ट
 # ==========================================
 with tab1:
     if st.button("मार्केट चेक करें 🔄"):
-        with st.spinner('डेटा लोड हो रहा है...'):
+        with st.spinner('डेटा आ रहा है...'):
             try:
                 period = "1y"
                 interval = "1d"
@@ -62,8 +58,8 @@ with tab1:
                     df['EMA_21'] = df.ta.ema(length=21)
                     df['RSI'] = df.ta.rsi(length=14)
                     
-                    current_price = float(df['Close'].iloc[-1])
                     curr = df.iloc[-1]
+                    current_price = float(curr['Close'])
                     
                     # सिग्नल
                     signal = "HOLD ⏸️"
@@ -97,7 +93,7 @@ with tab1:
                 st.error(f"Error: {e}")
 
 # ==========================================
-# TAB 2: AI चैटबॉट (Gemini Pro)
+# TAB 2: AI चैटबॉट (फिक्स्ड)
 # ==========================================
 with tab2:
     st.header("🤖 ईशान पंडित AI")
@@ -116,17 +112,15 @@ with tab2:
             st.markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        if api_key:
-            try:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel("gemini-pro")
-                
-                with st.chat_message("assistant"):
-                    with st.spinner("AI रिसर्च कर रहा है..."):
-                        response = model.generate_content(prompt)
-                        st.markdown(response.text)
-                        st.session_state.messages.append({"role": "assistant", "content": response.text})
-            except Exception as e:
-                st.error(f"API Error: {e}")
-        else:
-            st.error("❌ चाबी नहीं मिली! कृपया Secrets सेटिंग्स चेक करें।")
+        try:
+            # सीधे आपकी चाबी का इस्तेमाल
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-pro")
+            
+            with st.chat_message("assistant"):
+                with st.spinner("AI रिसर्च कर रहा है..."):
+                    response = model.generate_content(prompt)
+                    st.markdown(response.text)
+                    st.session_state.messages.append({"role": "assistant", "content": response.text})
+        except Exception as e:
+            st.error(f"अब भी कोई दिक्कत है? एरर ये है: {e}")
