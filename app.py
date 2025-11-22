@@ -2,131 +2,132 @@ import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
 import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import google.generativeai as genai
 
-# --- पेज की सेटिंग ---
-st.set_page_config(page_title="AI Trading Bot", page_icon="📈", layout="centered")
+# --- पेज सेटिंग ---
+st.set_page_config(page_title="Super AI Trading Bot", page_icon="🚀", layout="wide")
 
-st.title("📈 AI शेयर मार्केट असिस्टेंट")
-st.markdown("यह बॉट निफ्टी, बैंक निफ्टी और स्टॉक्स का लाइव एनालिसिस करता है।")
-st.markdown("---")
+st.title("🚀 AI सुपर ट्रेडिंग डैशबोर्ड")
+st.markdown("### चार्ट्स, सिग्नल्स और AI रिसर्च - सब एक जगह")
 
-# --- साइडबार ---
-st.sidebar.header("⚙️ सेटिंग्स")
-option = st.sidebar.selectbox(
-    "आप क्या चेक करना चाहते हैं?",
-    ("NIFTY 50", "BANK NIFTY", "SENSEX", "Custom Stock")
-)
+# --- साइडबार: API Key और सेटिंग्स ---
+st.sidebar.header("🔑 AI चाबी (API Key)")
+api_key = st.sidebar.text_input("Google API Key पेस्ट करें:", type="password")
+
+st.sidebar.markdown("---")
+st.sidebar.header("⚙️ चार्ट सेटिंग्स")
+option = st.sidebar.selectbox("शेयर चुनें:", ("NIFTY 50", "BANK NIFTY", "SENSEX", "Custom Stock"))
 
 symbol = ""
-if option == "NIFTY 50":
-    symbol = "^NSEI"
-elif option == "BANK NIFTY":
-    symbol = "^NSEBANK"
-elif option == "SENSEX":
-    symbol = "^BSESN"
+if option == "NIFTY 50": symbol = "^NSEI"
+elif option == "BANK NIFTY": symbol = "^NSEBANK"
+elif option == "SENSEX": symbol = "^BSESN"
 else:
-    user_input = st.sidebar.text_input("शेयर का सिंबल लिखें (जैसे RELIANCE.NS)", "RELIANCE.NS")
+    user_input = st.sidebar.text_input("सिंबल लिखें (जैसे RELIANCE.NS)", "RELIANCE.NS")
     symbol = user_input.upper()
 
-# --- बटन और मुख्य काम ---
-if st.sidebar.button("मार्केट चेक करें 🚀"):
-    with st.spinner(f'{option} का डेटा निकाला जा रहा है...'):
-        try:
-            # --- सुधार: डेटा लाने का सुरक्षित तरीका ---
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(period="6mo")
+timeframe = st.sidebar.selectbox("टाइमफ्रेम:", ("1 Day", "1 Hour", "15 Minutes"))
 
-            if df.empty:
-                st.error("❌ डेटा नहीं मिला! कृपया सिंबल सही लिखें (भारतीय शेयर के अंत में .NS लगाएं)")
-            else:
-                # इंडिकेटर गणना
-                df['EMA_9'] = df.ta.ema(length=9)
-                df['EMA_21'] = df.ta.ema(length=21)
-                df['RSI'] = df.ta.rsi(length=14)
+# --- टैब्स (Tabs) ---
+tab1, tab2 = st.tabs(["📊 टेक्निकल चार्ट & सिग्नल्स", "🤖 AI से सवाल पूछें (Chat)"])
+
+# ==========================================
+# TAB 1: टेक्निकल चार्ट
+# ==========================================
+with tab1:
+    if st.button("चार्ट अपडेट करें 🔄"):
+        with st.spinner('मार्केट डेटा लाया जा रहा है...'):
+            try:
+                # टाइमफ्रेम लॉजिक
+                period = "1y"
+                interval = "1d"
+                if "1 Hour" in timeframe: period, interval = "1mo", "1h"
+                elif "15 Minutes" in timeframe: period, interval = "5d", "15m"
+
+                # डेटा डाउनलोड
+                df = yf.download(symbol, period=period, interval=interval, progress=False)
                 
-                # ATR calculation fix
-                # कभी-कभी ATR में दिक्कत आती है, इसलिए basic calculation
-                df['ATR'] = df.ta.atr(length=14)
-                
-                # आखिरी डेटा
-                current = df.iloc[-1]
-                previous = df.iloc[-2]
-                
-                current_price = float(current['Close'])
-                
-                # ATR वैल्यू सुरक्षित तरीके से निकालें
-                atr_value = 0
-                if 'ATR' in df.columns and not pd.isna(current['ATR']):
-                    atr_value = float(current['ATR'])
+                if df.empty:
+                    st.error("❌ डेटा नहीं मिला।")
                 else:
-                    atr_value = current_price * 0.01 # डिफॉल्ट 1% अगर ATR न मिले
+                    # इंडिकेटर्स
+                    df['EMA_9'] = df.ta.ema(length=9)
+                    df['EMA_21'] = df.ta.ema(length=21)
+                    df['RSI'] = df.ta.rsi(length=14)
+                    
+                    current_price = float(df['Close'].iloc[-1])
+                    
+                    # सिग्नल लॉजिक
+                    signal = "HOLD ⏸️"
+                    color = "blue"
+                    curr = df.iloc[-1]
+                    prev = df.iloc[-2]
 
-                # --- लॉजिक ---
-                signal = "HOLD (इंतजार करें) ⏸️"
-                reason = "मार्केट साइडवेज है या कोई साफ सिग्नल नहीं है।"
-                color = "blue"
+                    if curr['EMA_9'] > curr['EMA_21']:
+                        signal = "BUY TREND 🟢"
+                        color = "green"
+                    elif curr['EMA_9'] < curr['EMA_21']:
+                        signal = "SELL TREND 🔴"
+                        color = "red"
 
-                # Buy Condition
-                if current['EMA_9'] > current['EMA_21'] and previous['EMA_9'] <= previous['EMA_21']:
-                    signal = "BUY / CALL (खरीदें) 🟢"
-                    reason = "Golden Crossover: ट्रेंड ऊपर की तरफ शुरू हुआ है।"
-                    color = "green"
-                # Sell Condition
-                elif current['EMA_9'] < current['EMA_21'] and previous['EMA_9'] >= previous['EMA_21']:
-                    signal = "SELL / PUT (बेचें) 🔴"
-                    reason = "Death Crossover: ट्रेंड नीचे की तरफ शुरू हुआ है।"
-                    color = "red"
-                # RSI Condition
-                elif current['RSI'] < 30:
-                    signal = "BUY (Oversold) 🟢"
-                    reason = "RSI 30 से नीचे है, बाउंस आ सकता है।"
-                    color = "green"
-                elif current['RSI'] > 75:
-                    signal = "SELL (Overbought) 🔴"
-                    reason = "RSI 75 से ऊपर है, गिरावट आ सकती है।"
-                    color = "red"
-
-                # --- स्टॉप लॉस और टारगेट ---
-                sl = 0
-                tgt = 0
-                if "BUY" in signal:
-                    sl = current_price - (atr_value * 1.5)
-                    tgt = current_price + (atr_value * 3)
-                elif "SELL" in signal:
-                    sl = current_price + (atr_value * 1.5)
-                    tgt = current_price - (atr_value * 3)
-
-                # --- रिजल्ट दिखाना ---
-                st.header(f"{option} रिपोर्ट")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric(label="अभी का भाव (CMP)", value=f"₹{current_price:.2f}")
-                with col2:
-                    st.metric(label="RSI इंडिकेटर", value=f"{current['RSI']:.2f}")
-
-                st.subheader("🤖 AI फैसला:")
-                if color == "green":
-                    st.success(f"## {signal}")
-                elif color == "red":
-                    st.error(f"## {signal}")
-                else:
-                    st.info(f"## {signal}")
-
-                st.write(f"**कारण:** {reason}")
-
-                if "HOLD" not in signal:
-                    st.markdown("---")
-                    c1, c2 = st.columns(2)
+                    # डिस्प्ले
+                    c1, c2 = st.columns([1, 3])
                     with c1:
-                        st.write(f"🛑 **Stop Loss:** ₹{sl:.2f}")
+                        st.metric("अभी का भाव", f"₹{current_price:.2f}")
+                        if color == "green": st.success(f"### {signal}")
+                        elif color == "red": st.error(f"### {signal}")
+                        else: st.info(f"### {signal}")
+                        st.write(f"**RSI:** {curr['RSI']:.2f}")
+                    
                     with c2:
-                        st.write(f"🎯 **Target:** ₹{tgt:.2f}")
+                        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
+                        fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
+                        fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange'), name="EMA 9"), row=1, col=1)
+                        fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue'), name="EMA 21"), row=1, col=1)
+                        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple'), name="RSI"), row=2, col=1)
+                        fig.add_hline(y=70, line_dash="dot", row=2, col=1, line_color="red")
+                        fig.add_hline(y=30, line_dash="dot", row=2, col=1, line_color="green")
+                        fig.update_layout(height=500, xaxis_rangeslider_visible=False)
+                        st.plotly_chart(fig, use_container_width=True)
 
-                st.markdown("---")
-                st.caption("⚠️ डिस्क्लेमर: यह केवल एक एआई टूल है। कृपया अपने जोखिम पर ट्रेड करें।")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
-        except Exception as e:
-            st.error(f"कुछ तकनीकी दिक्कत आई: {e}")
+# ==========================================
+# TAB 2: AI चैटबॉट
+# ==========================================
+with tab2:
+    st.header("🤖 शेयर मार्केट एक्सपर्ट से पूछें")
+    st.info("💡 टिप्स: पूछें 'Tata Motors का फंडामेंटल कैसा है?' या 'कल के लिए ट्रेडिंग स्ट्रैटेजी बताओ'")
+    
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-else:
-    st.info("👈 साइडबार से ऑप्शन चुनें और 'मार्केट चेक करें' बटन दबाएं।")
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    prompt = st.chat_input("अपना सवाल यहाँ लिखें...")
+    
+    if prompt:
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        if not api_key:
+            st.error("⚠️ कृपया पहले साइडबार में API Key डालें!")
+        else:
+            try:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                full_prompt = f"You are a helpful Indian Stock Market Expert. Answer this question in Hindi (Hinglish) clearly: {prompt}"
+                
+                with st.chat_message("assistant"):
+                    with st.spinner("AI सोच रहा है..."):
+                        response = model.generate_content(full_prompt)
+                        st.markdown(response.text)
+                        st.session_state.messages.append({"role": "assistant", "content": response.text})
+            except Exception as e:
+                st.error(f"API Error: {e}")
