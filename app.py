@@ -1,4 +1,4 @@
-app.pyimport streamlit as st
+import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
 import pandas as pd
