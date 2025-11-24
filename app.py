@@ -94,4 +94,94 @@ with tab1:
                 if df.empty: st.error("❌ डेटा नहीं मिला")
                 else:
                     df['EMA_9'] = df.ta.ema(length=9)
-                    df['EMA_21'] = df.
+                    df['EMA_21'] = df.ta.ema(length=21)
+                    df['RSI'] = df.ta.rsi(length=14)
+                    
+                    curr = df.iloc[-1]
+                    price = float(curr['Close'])
+                    
+                    # सिग्नल लॉजिक
+                    action = "WAIT (रुको)"
+                    color = "blue"
+                    if curr['EMA_9'] > curr['EMA_21']:
+                        action = "BUY (खरीदें) 🟢"
+                        color = "green"
+                    elif curr['EMA_9'] < curr['EMA_21']:
+                        action = "SELL (बेचें) 🔴"
+                        color = "red"
+
+                    # --- बड़ा सिग्नल बॉक्स ---
+                    st.markdown(f"""
+                    <div style="padding: 20px; border: 3px solid {color}; border-radius: 15px; background-color: {'#e8f5e9' if color=='green' else '#ffebee' if color=='red' else 'white'};">
+                        <h1 style="color: {color}; text-align: center;">{action}</h1>
+                        <h2 style="text-align: center; color: black;">Price: {price:.2f}</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.write("")
+
+                    # --- रंगीन चार्ट (Colorful) ---
+                    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3])
+
+                    # कैंडल्स (लाल और हरी)
+                    fig.add_trace(go.Candlestick(
+                        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+                        name="Price",
+                        increasing_line_color='#00c853', decreasing_line_color='#ff3d00'
+                    ), row=1, col=1)
+
+                    # इंडिकेटर्स
+                    fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange'), name="EMA 9"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue'), name="EMA 21"), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='purple'), name="RSI"), row=2, col=1)
+                    
+                    # RSI लाइन्स
+                    fig.add_hline(y=70, line_dash="dot", row=2, col=1, line_color="red")
+                    fig.add_hline(y=30, line_dash="dot", row=2, col=1, line_color="green")
+
+                    fig.update_layout(height=700, xaxis_rangeslider_visible=False, title=f"{symbol} Colorful Chart")
+                    st.plotly_chart(fig, use_container_width=True)
+
+            except Exception as e: st.error(f"Error: {e}")
+
+# TAB 2: कैंडल लाइब्रेरी (ढेर सारी)
+with tab2:
+    st.header("📚 कैंडलस्टिक ज्ञान का खजाना")
+    search = st.text_input("कैंडल का नाम खोजें...")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    for i, candle in enumerate(CANDLE_LIBRARY):
+        if search.lower() in candle['name'].lower():
+            # रंग तय करना
+            bg_color = "#d4edda" if "Bullish" in candle['type'] or "Buy" in candle['type'] else "#f8d7da" if "Bearish" in candle['type'] or "Sell" in candle['type'] else "#fff3cd"
+            
+            with col1 if i%3==0 else col2 if i%3==1 else col3:
+                st.markdown(f"""
+                <div style="
+                    border: 1px solid #ccc;
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin-bottom: 15px;
+                    background-color: {bg_color};
+                    color: black;
+                ">
+                    <h4 style="margin:0;">{candle['name']}</h4>
+                    <p style="font-weight:bold; color: #333;">{candle['type']}</p>
+                    <hr style="border-top: 1px solid #999;">
+                    <p style="font-size: 14px;">{candle['desc']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+
+[Image of forex trading chart]
+
+
+# TAB 3: AI
+with tab3:
+    st.header("🤖 AI गुरुजी")
+    if prompt := st.chat_input("सवाल पूछें..."):
+        st.chat_message("user").markdown(prompt)
+        try:
+            res = model.generate_content(prompt)
+            st.chat_message("assistant").markdown(res.text)
+        except Exception as e: st.error(str(e))
