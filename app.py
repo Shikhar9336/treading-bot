@@ -8,66 +8,118 @@ import google.generativeai as genai
 import math
 
 # --- पेज सेटिंग ---
-st.set_page_config(page_title="Shikhar Trading Master", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Shikhar Trading Master", page_icon="⚙️", layout="wide")
 
 # ==========================================
-# 🔑 API KEY & AI SETUP (FLASH MODEL - FASTEST)
+# 🎨 थीम और सेटिंग्स (User Control)
 # ==========================================
-api_key = "AIzaSyDKx2IgsHmnCDYm7IDqUXzr9Yfu9yuFgls"
-
-try:
-    genai.configure(api_key=api_key)
-    # यह नया और सबसे तेज मॉडल है
-    model = genai.GenerativeModel("gemini-1.5-flash")
-except Exception as e:
-    pass
-
-# --- साइडबार ---
 with st.sidebar:
-    st.header("👤 ट्रेडर प्रोफाइल")
-    st.info("नाम: शिखर तिवारी (ईशान पंडित)")
-    st.success("✅ AI Fixed & Ready")
+    st.header("⚙️ डिस्प्ले सेटिंग्स")
+    
+    # 1. थीम बटन
+    theme_choice = st.radio("थीम चुनें:", ("Dark Mode (काला)", "Light Mode (सफेद)"))
+    
+    # थीम के अनुसार रंग सेट करना
+    if "Dark" in theme_choice:
+        bg_color = "#0e1117"
+        text_color = "white"
+        card_bg = "#1e1e1e"
+        chart_template = "plotly_dark"
+        grid_color = "#2a2e39"
+        # डार्क CSS
+        st.markdown("""
+        <style>
+            .stApp { background-color: #0e1117; color: white; }
+            .stMarkdown, h1, h2, h3, p, label { color: white !important; }
+            div[data-testid="stSidebar"] { background-color: #262730; }
+            .stMetric { background-color: #262730; border: 1px solid #444; }
+        </style>
+        """, unsafe_allow_html=True)
+    else:
+        bg_color = "#ffffff"
+        text_color = "black"
+        card_bg = "#f9f9f9"
+        chart_template = "plotly_white"
+        grid_color = "#f0f0f0"
+        # लाइट CSS
+        st.markdown("""
+        <style>
+            .stApp { background-color: #ffffff; color: black; }
+            .stMarkdown, h1, h2, h3, p, label { color: black !important; }
+            div[data-testid="stSidebar"] { background-color: #f0f2f6; }
+            .stMetric { background-color: #ffffff; border: 1px solid #ddd; }
+        </style>
+        """, unsafe_allow_html=True)
+
     st.markdown("---")
 
-st.title("📈 शिखर तिवारी - मास्टर ट्रेडिंग टर्मिनल")
-st.markdown("### 🚀 Angel One Style Charts, Smart Options & AI")
+# ==========================================
+# 🧮 रिस्क कैलकुलेटर (NEW FEATURE)
+# ==========================================
+with st.sidebar:
+    with st.expander("🧮 पोजीशन कैलकुलेटर (New)"):
+        st.caption("ट्रेड लेने से पहले चेक करें")
+        capital = st.number_input("पूंजी (Capital):", value=10000)
+        risk_pct = st.number_input("रिस्क (%):", value=2.0)
+        entry = st.number_input("एंट्री प्राइस:", value=100.0)
+        sl_price = st.number_input("स्टॉप लॉस:", value=95.0)
+        
+        if st.button("कैलकुलेट करें"):
+            risk_amt = capital * (risk_pct / 100)
+            loss_per_share = entry - sl_price
+            if loss_per_share > 0:
+                qty = math.floor(risk_amt / loss_per_share)
+                st.success(f"✅ केवल **{qty}** शेयर खरीदें")
+                st.info(f"अधिकतम नुकसान: ₹{risk_amt:.2f}")
+            else:
+                st.error("Stop Loss एंट्री से कम होना चाहिए!")
+
+# 🔑 API KEY
+api_key = "AIzaSyDKx2IgsHmnCDYm7IDqUXzr9Yfu9yuFgls"
+try:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+except: pass
+
+st.title("📈 शिखर तिवारी - ट्रेडिंग टर्मिनल")
 
 # ==========================================
 # ⚙️ मार्केट सिलेक्शन
 # ==========================================
-st.sidebar.header("🔍 मार्केट चुनें")
-market_cat = st.sidebar.radio("सेगमेंट:", ("🇮🇳 इंडियन मार्केट (F&O)", "💱 फॉरेक्स & गोल्ड", "🇺🇸 ग्लोबल मार्केट", "₿ क्रिप्टो"))
+col1, col2, col3 = st.columns(3)
 
-symbol = ""
-if market_cat == "🇮🇳 इंडियन मार्केट (F&O)":
-    option = st.sidebar.selectbox("इंडेक्स/स्टॉक:", ("NIFTY 50", "BANK NIFTY", "FINNIFTY", "RELIANCE", "TATA MOTORS", "HDFC BANK", "SBIN"))
-    if "NIFTY" in option: symbol = "^NSEI" if "50" in option else "^NSEBANK" if "BANK" in option else "NIFTY_FIN_SERVICE.NS"
-    else: symbol = f"{option.replace(' ', '')}.NS"
+with col1:
+    market_cat = st.selectbox("मार्केट:", ("🇮🇳 इंडियन मार्केट (F&O)", "💱 फॉरेक्स & गोल्ड", "🇺🇸 ग्लोबल मार्केट", "₿ क्रिप्टो"))
 
-elif market_cat == "💱 फॉरेक्स & गोल्ड":
-    option = st.sidebar.selectbox("पेयर:", ("GOLD (XAU/USD)", "SILVER", "GBP/USD", "EUR/USD", "USD/JPY"))
-    if "GOLD" in option: symbol = "GC=F"
-    elif "SILVER" in option: symbol = "SI=F"
-    elif "GBP" in option: symbol = "GBPUSD=X"
-    elif "EUR" in option: symbol = "EURUSD=X"
+with col2:
+    symbol = ""
+    if "इंडियन" in market_cat:
+        option = st.selectbox("सिंबल:", ("NIFTY 50", "BANK NIFTY", "RELIANCE", "TATA MOTORS", "HDFC BANK"))
+        if "NIFTY" in option: symbol = "^NSEI" if "50" in option else "^NSEBANK"
+        else: symbol = f"{option.replace(' ', '')}.NS"
+    elif "फॉरेक्स" in market_cat:
+        option = st.selectbox("सिंबल:", ("GOLD (XAU/USD)", "SILVER", "GBP/USD", "EUR/USD"))
+        if "GOLD" in option: symbol = "GC=F"
+        elif "SILVER" in option: symbol = "SI=F"
+        elif "GBP" in option: symbol = "GBPUSD=X"
+        elif "EUR" in option: symbol = "EURUSD=X"
+    elif "ग्लोबल" in market_cat:
+        symbol = "^IXIC"
+    elif "क्रिप्टो" in market_cat:
+        symbol = "BTC-USD"
 
-elif market_cat == "🇺🇸 ग्लोबल मार्केट":
-    symbol = "^IXIC"
-
-elif market_cat == "₿ क्रिप्टो":
-    symbol = "BTC-USD"
-
-timeframe = st.sidebar.selectbox("टाइमफ्रेम:", ("1 Minute", "5 Minutes", "15 Minutes", "1 Hour", "1 Day"))
+with col3:
+    timeframe = st.selectbox("टाइमफ्रेम:", ("1 Minute", "5 Minutes", "15 Minutes", "1 Hour", "1 Day"))
 
 # --- टैब्स ---
-tab1, tab2, tab3, tab4 = st.tabs(["📊 लाइव चार्ट (Pro)", "🎯 स्मार्ट ऑप्शन एंट्री", "📚 कैंडल ज्ञान", "🤖 AI गुरुजी"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 लाइव चार्ट", "🎯 स्मार्ट ऑप्शन चेन", "📚 कैंडल ज्ञान", "🤖 AI गुरुजी"])
 
 # ==========================================
-# TAB 1: लाइव चार्ट (Angel One Style)
+# TAB 1: लाइव चार्ट (Dynamic Theme)
 # ==========================================
 with tab1:
-    if st.button(f"{symbol} चार्ट देखें 🚀", key="btn_chart"):
-        with st.spinner('डेटा लोड हो रहा है...'):
+    if st.button(f"{symbol} चार्ट देखें 🚀"):
+        with st.spinner('चार्ट बन रहा है...'):
             try:
                 p, i = ("1y", "1d")
                 if "1 Minute" in timeframe: p, i = "5d", "1m"
@@ -89,28 +141,28 @@ with tab1:
                     price = float(curr['Close'])
                     atr = float(curr['ATR']) if 'ATR' in df.columns and not pd.isna(curr['ATR']) else price * 0.01
 
-                    # सिग्नल लॉजिक
+                    # सिग्नल
                     action = "WAIT"
                     color = "#2962ff"
                     sl, tgt = 0.0, 0.0
 
                     if curr['EMA_9'] > curr['EMA_21']:
                         action = "BUY 🟢"
-                        color = "#008F4C"
+                        color = "#00c853" # Green
                         sl = price - (atr * 1.5)
                         tgt = price + (atr * 3.0)
                     elif curr['EMA_9'] < curr['EMA_21']:
                         action = "SELL 🔴"
-                        color = "#D32F2F"
+                        color = "#ff3d00" # Red
                         sl = price + (atr * 1.5)
                         tgt = price - (atr * 3.0)
 
-                    # सिग्नल कार्ड
+                    # कार्ड (Theme Based Colors)
                     st.markdown(f"""
-                    <div style="padding: 15px; border: 2px solid {color}; border-radius: 10px; background-color: #ffffff; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                    <div style="padding: 15px; border: 2px solid {color}; border-radius: 10px; background-color: {card_bg}; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <h1 style="color: {color}; margin:0;">{action}</h1>
-                        <h2 style="color: #333; margin:5px;">₹{price:.2f}</h2>
-                        <div style="display: flex; justify-content: space-around; color: #555;">
+                        <h2 style="color: {text_color}; margin:5px;">LTP: ₹{price:.2f}</h2>
+                        <div style="display: flex; justify-content: space-around; color: {text_color};">
                             <span>🛑 SL: <b>{sl:.2f}</b></span>
                             <span>🎯 TGT: <b>{tgt:.2f}</b></span>
                         </div>
@@ -118,16 +170,34 @@ with tab1:
                     """, unsafe_allow_html=True)
                     st.write("")
 
-                    # चार्ट (White Background)
+                    # चार्ट (Dynamic Theme)
                     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25])
-                    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price", increasing_line_color='#008F4C', decreasing_line_color='#D32F2F'), row=1, col=1)
+                    
+                    # Candles
+                    fig.add_trace(go.Candlestick(
+                        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+                        name="Price", increasing_line_color='#008F4C', decreasing_line_color='#D32F2F'
+                    ), row=1, col=1)
+
+                    # EMAs
                     fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange', width=1), name="EMA 9"), row=1, col=1)
                     fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue', width=1), name="EMA 21"), row=1, col=1)
+                    
+                    # Volume
                     vol_colors = ['#D32F2F' if c < o else '#008F4C' for c, o in zip(df['Close'], df['Open'])]
                     fig.add_trace(go.Bar(x=df.index, y=df['Volume'], marker_color=vol_colors, name="Volume"), row=2, col=1)
                     
-                    fig.update_layout(height=650, paper_bgcolor='white', plot_bgcolor='white', xaxis_rangeslider_visible=False, showlegend=False, title=f"{symbol} Chart")
-                    fig.update_xaxes(showgrid=True, gridcolor='#f0f0f0'); fig.update_yaxes(showgrid=True, gridcolor='#f0f0f0')
+                    # Layout Update based on Theme
+                    fig.update_layout(
+                        template=chart_template, # Magic Line for Theme
+                        paper_bgcolor=bg_color,
+                        plot_bgcolor=bg_color,
+                        height=650, title=f"{symbol} Chart",
+                        xaxis_rangeslider_visible=False, showlegend=False
+                    )
+                    fig.update_xaxes(showgrid=True, gridcolor=grid_color)
+                    fig.update_yaxes(showgrid=True, gridcolor=grid_color)
+                    
                     st.plotly_chart(fig, use_container_width=True)
 
             except Exception as e: st.error(f"Error: {e}")
@@ -136,17 +206,17 @@ with tab1:
 # TAB 2: स्मार्ट ऑप्शन कैलकुलेटर
 # ==========================================
 with tab2:
-    st.header("🎯 ऑप्शन स्ट्राइक कैलकुलेटर")
-    if st.button(f"{symbol} ऑप्शन स्कैन 🎲", key="opt_btn"):
-        with st.spinner('कैलकुलेट हो रहा है...'):
+    st.header("🎯 ऑप्शन स्ट्राइक & प्रीमियम")
+    if st.button("ऑप्शन डेटा निकालें 🎲"):
+        with st.spinner('Calculating...'):
             try:
                 df = yf.Ticker(symbol).history(period="5d", interval="5m")
-                if df.empty: st.error("डेटा नहीं मिला")
+                if df.empty: st.error("No Data")
                 else:
                     curr = df.iloc[-1]
-                    spot_price = float(curr['Close'])
+                    spot = float(curr['Close'])
                     
-                    # Trend Check
+                    # Trend
                     df['EMA_9'] = df.ta.ema(length=9)
                     df['EMA_21'] = df.ta.ema(length=21)
                     last = df.iloc[-1]
@@ -156,32 +226,30 @@ with tab2:
                     elif last['EMA_9'] < last['EMA_21']: trend = "DOWNTREND"
 
                     gap = 100 if "BANK" in symbol else 50
-                    atm_strike = round(spot_price / gap) * gap
+                    atm = round(spot / gap) * gap
                     
-                    rec_type, color, msg = "WAIT", "gray", "नो ट्रेड"
-                    est_premium = spot_price * 0.006
+                    rec, col = "WAIT", "gray"
+                    est_prem = spot * 0.006
 
                     if trend == "UPTREND":
-                        rec_type = "BUY CALL (CE)"
-                        color = "green"
-                        msg = "मार्केट ऊपर है।"
+                        rec = "BUY CALL (CE)"
+                        col = "green"
                     elif trend == "DOWNTREND":
-                        rec_type = "BUY PUT (PE)"
-                        color = "red"
-                        msg = "मार्केट नीचे है।"
+                        rec = "BUY PUT (PE)"
+                        col = "red"
 
-                    buy_above = est_premium + 5
+                    buy_above = est_prem + 5
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.metric("SPOT PRICE", f"{spot_price:.2f}")
-                        st.info(f"ATM Strike: {atm_strike}")
+                        st.metric("SPOT PRICE", f"{spot:.2f}")
+                        st.info(f"ATM: {atm}")
                     with col2:
-                        if color != "gray":
+                        if col != "gray":
                             st.markdown(f"""
-                            <div style="padding:10px; border:2px solid {color}; border-radius:10px; text-align:center;">
-                                <h3 style="color:{color}; margin:0;">{rec_type}</h3>
-                                <h2>Strike: {atm_strike}</h2>
+                            <div style="padding:10px; border:2px solid {col}; border-radius:10px; text-align:center; background-color:{card_bg}; color:{text_color};">
+                                <h3 style="color:{col}; margin:0;">{rec}</h3>
+                                <h2>Strike: {atm}</h2>
                                 <p>Buy Above: <b>₹{buy_above:.2f}</b></p>
                             </div>
                             """, unsafe_allow_html=True)
@@ -191,48 +259,38 @@ with tab2:
             except Exception as e: st.error(str(e))
 
 # ==========================================
-# TAB 3: कैंडलस्टिक ज्ञान (HINDI)
+# TAB 3: कैंडल ज्ञान (Theme Adaptive)
 # ==========================================
 with tab3:
-    st.header("📚 कैंडलस्टिक पैटर्न गाइड")
+    st.header("📚 कैंडलस्टिक पैटर्न")
     
-    # 1. Hammer
-    st.subheader("1. Hammer (हथौड़ा) 🔨")
-    st.success("**मतलब:** बुलिश (तेजी)।")
-    st.write("यह गिरावट के बाद नीचे बनता है। इसकी पूंछ (Wick) लंबी होती है और बॉडी छोटी। इसका मतलब है कि नीचे से खरीददारी आ गई है।")
+    # Theme के हिसाब से कार्ड का कलर
+    info_bg = "#262730" if "Dark" in theme_choice else "#e3f2fd"
+    info_text = "white" if "Dark" in theme_choice else "black"
+
+    patterns = [
+        {"name": "Hammer 🔨", "type": "Bullish", "desc": "गिरावट के बाद बनता है, तेजी का संकेत।"},
+        {"name": "Shooting Star 🌠", "type": "Bearish", "desc": "तेजी के बाद बनता है, मंदी का संकेत।"},
+        {"name": "Bullish Engulfing 📈", "type": "Strong Buy", "desc": "हरी कैंडल ने लाल को खा लिया।"},
+        {"name": "Bearish Engulfing 📉", "type": "Strong Sell", "desc": "लाल कैंडल ने हरी को खा लिया।"}
+    ]
     
-    # 2. Shooting Star
-    st.subheader("2. Shooting Star 🌠")
-    st.error("**मतलब:** बेयरिश (मंदी)।")
-    st.write("यह तेजी के बाद ऊपर बनता है। इसकी ऊपर की पूंछ लंबी होती है। इसका मतलब है कि ऊपर से बिकवाली आ गई है।")
-    
-    # 3. Engulfing
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info("**Bullish Engulfing 📈**")
-        st.write("बड़ी हरी कैंडल ने पिछली लाल को पूरा ढक लिया। (Strong Buy)")
-    with col2:
-        st.info("**Bearish Engulfing 📉**")
-        st.write("बड़ी लाल कैंडल ने पिछली हरी को पूरा ढक लिया। (Strong Sell)")
+    for pat in patterns:
+        st.markdown(f"""
+        <div style="background-color: {info_bg}; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+            <h4 style="color: {info_text}; margin:0;">{pat['name']}</h4>
+            <p style="color: {info_text};">{pat['desc']}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==========================================
-# TAB 4: AI गुरुजी (FIXED MODEL)
+# TAB 4: AI गुरुजी
 # ==========================================
 with tab4:
     st.header("🤖 AI गुरुजी")
-    st.caption("मार्केट के सवाल पूछें...")
-    
-    if "messages" not in st.session_state: st.session_state.messages = []
-    for m in st.session_state.messages: st.chat_message(m["role"]).markdown(m["content"])
-    
-    if prompt := st.chat_input("सवाल पूछें..."):
+    if prompt := st.chat_input("पूछें..."):
         st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        
         try:
-            # यह मॉडल कभी फेल नहीं होता
-            response = model.generate_content(prompt)
-            st.chat_message("assistant").markdown(response.text)
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
-        except Exception as e:
-            st.error(f"Error: {e}")
+            res = model.generate_content(prompt)
+            st.chat_message("assistant").markdown(res.text)
+        except: st.error("AI Busy")
