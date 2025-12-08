@@ -5,74 +5,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import google.generativeai as genai
-import math
 
 # --- पेज सेटिंग ---
-st.set_page_config(page_title="Shikhar Trading Master", page_icon="⚙️", layout="wide")
-
-# ==========================================
-# 🎨 थीम और सेटिंग्स (User Control)
-# ==========================================
-with st.sidebar:
-    st.header("⚙️ डिस्प्ले सेटिंग्स")
-    
-    # 1. थीम बटन
-    theme_choice = st.radio("थीम चुनें:", ("Dark Mode (काला)", "Light Mode (सफेद)"))
-    
-    # थीम के अनुसार रंग सेट करना
-    if "Dark" in theme_choice:
-        bg_color = "#0e1117"
-        text_color = "white"
-        card_bg = "#1e1e1e"
-        chart_template = "plotly_dark"
-        grid_color = "#2a2e39"
-        # डार्क CSS
-        st.markdown("""
-        <style>
-            .stApp { background-color: #0e1117; color: white; }
-            .stMarkdown, h1, h2, h3, p, label { color: white !important; }
-            div[data-testid="stSidebar"] { background-color: #262730; }
-            .stMetric { background-color: #262730; border: 1px solid #444; }
-        </style>
-        """, unsafe_allow_html=True)
-    else:
-        bg_color = "#ffffff"
-        text_color = "black"
-        card_bg = "#f9f9f9"
-        chart_template = "plotly_white"
-        grid_color = "#f0f0f0"
-        # लाइट CSS
-        st.markdown("""
-        <style>
-            .stApp { background-color: #ffffff; color: black; }
-            .stMarkdown, h1, h2, h3, p, label { color: black !important; }
-            div[data-testid="stSidebar"] { background-color: #f0f2f6; }
-            .stMetric { background-color: #ffffff; border: 1px solid #ddd; }
-        </style>
-        """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-# ==========================================
-# 🧮 रिस्क कैलकुलेटर (NEW FEATURE)
-# ==========================================
-with st.sidebar:
-    with st.expander("🧮 पोजीशन कैलकुलेटर (New)"):
-        st.caption("ट्रेड लेने से पहले चेक करें")
-        capital = st.number_input("पूंजी (Capital):", value=10000)
-        risk_pct = st.number_input("रिस्क (%):", value=2.0)
-        entry = st.number_input("एंट्री प्राइस:", value=100.0)
-        sl_price = st.number_input("स्टॉप लॉस:", value=95.0)
-        
-        if st.button("कैलकुलेट करें"):
-            risk_amt = capital * (risk_pct / 100)
-            loss_per_share = entry - sl_price
-            if loss_per_share > 0:
-                qty = math.floor(risk_amt / loss_per_share)
-                st.success(f"✅ केवल **{qty}** शेयर खरीदें")
-                st.info(f"अधिकतम नुकसान: ₹{risk_amt:.2f}")
-            else:
-                st.error("Stop Loss एंट्री से कम होना चाहिए!")
+st.set_page_config(page_title="Shikhar Pro Terminal", page_icon="📈", layout="wide")
 
 # 🔑 API KEY
 api_key = "AIzaSyDKx2IgsHmnCDYm7IDqUXzr9Yfu9yuFgls"
@@ -81,45 +16,68 @@ try:
     model = genai.GenerativeModel("gemini-1.5-flash")
 except: pass
 
-st.title("📈 शिखर तिवारी - ट्रेडिंग टर्मिनल")
+# --- साइडबार सेटिंग्स ---
+with st.sidebar:
+    st.header("⚙️ डिस्प्ले सेटिंग्स")
+    theme_choice = st.radio("थीम:", ("Light Mode (सफेद)", "Dark Mode (काला)"))
+    
+    st.subheader("📈 चार्ट इंडिकेटर्स")
+    show_ema = st.checkbox("EMA (9 & 21)", value=True)
+    show_bb = st.checkbox("Bollinger Bands", value=True)
+    show_macd = st.checkbox("MACD Panel", value=True)
+    
+    st.markdown("---")
+    st.info("👤 **Trader:** शिखर तिवारी")
+
+# थीम कलर्स
+if "Dark" in theme_choice:
+    bg_color = "#0e1117"
+    card_bg = "#1e1e1e"
+    text_color = "white"
+    chart_theme = "plotly_dark"
+else:
+    bg_color = "#ffffff"
+    card_bg = "#f0f2f6"
+    text_color = "black"
+    chart_theme = "plotly_white"
+
+# CSS
+st.markdown(f"""<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>""", unsafe_allow_html=True)
+
+st.title("📈 शिखर तिवारी - मास्टर ट्रेडिंग टर्मिनल")
 
 # ==========================================
 # ⚙️ मार्केट सिलेक्शन
 # ==========================================
 col1, col2, col3 = st.columns(3)
-
 with col1:
-    market_cat = st.selectbox("मार्केट:", ("🇮🇳 इंडियन मार्केट (F&O)", "💱 फॉरेक्स & गोल्ड", "🇺🇸 ग्लोबल मार्केट", "₿ क्रिप्टो"))
+    market_cat = st.selectbox("मार्केट:", ("🇮🇳 इंडियन मार्केट", "💱 फॉरेक्स & गोल्ड", "🇺🇸 ग्लोबल", "₿ क्रिप्टो"))
 
 with col2:
     symbol = ""
     if "इंडियन" in market_cat:
-        option = st.selectbox("सिंबल:", ("NIFTY 50", "BANK NIFTY", "RELIANCE", "TATA MOTORS", "HDFC BANK"))
-        if "NIFTY" in option: symbol = "^NSEI" if "50" in option else "^NSEBANK"
-        else: symbol = f"{option.replace(' ', '')}.NS"
+        opt = st.selectbox("सिंबल:", ("NIFTY 50", "BANK NIFTY", "RELIANCE", "TATA MOTORS", "HDFC BANK"))
+        symbol = "^NSEI" if "NIFTY" in opt else "^NSEBANK" if "BANK" in opt else f"{opt.replace(' ','')}.NS"
     elif "फॉरेक्स" in market_cat:
-        option = st.selectbox("सिंबल:", ("GOLD (XAU/USD)", "SILVER", "GBP/USD", "EUR/USD"))
-        if "GOLD" in option: symbol = "GC=F"
-        elif "SILVER" in option: symbol = "SI=F"
-        elif "GBP" in option: symbol = "GBPUSD=X"
-        elif "EUR" in option: symbol = "EURUSD=X"
+        opt = st.selectbox("सिंबल:", ("GOLD (XAUUSD)", "SILVER", "EUR/USD", "GBP/USD"))
+        symbol = "GC=F" if "GOLD" in opt else "SI=F" if "SILVER" in opt else "EURUSD=X" if "EUR" in opt else "GBPUSD=X"
     elif "ग्लोबल" in market_cat:
         symbol = "^IXIC"
-    elif "क्रिप्टो" in market_cat:
+    else:
         symbol = "BTC-USD"
 
 with col3:
     timeframe = st.selectbox("टाइमफ्रेम:", ("1 Minute", "5 Minutes", "15 Minutes", "1 Hour", "1 Day"))
 
 # --- टैब्स ---
-tab1, tab2, tab3, tab4 = st.tabs(["📊 लाइव चार्ट", "🎯 स्मार्ट ऑप्शन चेन", "📚 कैंडल ज्ञान", "🤖 AI गुरुजी"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 प्रो चार्ट (Advance)", "🎯 स्मार्ट ऑप्शन & PCR", "🕯️ 32 कैंडल ज्ञान", "🤖 AI गुरुजी"])
 
 # ==========================================
-# TAB 1: लाइव चार्ट (Dynamic Theme)
+# TAB 1: प्रो चार्ट (Bollinger + MACD)
 # ==========================================
 with tab1:
     if st.button(f"{symbol} चार्ट देखें 🚀"):
-        with st.spinner('चार्ट बन रहा है...'):
+        with st.spinner('प्रो चार्ट बन रहा है...'):
             try:
                 p, i = ("1y", "1d")
                 if "1 Minute" in timeframe: p, i = "5d", "1m"
@@ -129,166 +87,181 @@ with tab1:
 
                 df = yf.Ticker(symbol).history(period=p, interval=i)
                 
-                if df.empty: st.error("❌ डेटा नहीं मिला")
+                if df.empty: st.error("डेटा नहीं मिला")
                 else:
-                    # इंडिकेटर्स
+                    # इंडिकेटर्स कैलकुलेशन
                     df['EMA_9'] = df.ta.ema(length=9)
                     df['EMA_21'] = df.ta.ema(length=21)
-                    df['RSI'] = df.ta.rsi(length=14)
-                    df['ATR'] = df.ta.atr(length=14)
-                    
+                    bb = df.ta.bbands(length=20, std=2)
+                    df = pd.concat([df, bb], axis=1)
+                    macd = df.ta.macd(fast=12, slow=26, signal=9)
+                    df = pd.concat([df, macd], axis=1)
+
+                    # सिग्नल लॉजिक
                     curr = df.iloc[-1]
                     price = float(curr['Close'])
-                    atr = float(curr['ATR']) if 'ATR' in df.columns and not pd.isna(curr['ATR']) else price * 0.01
-
-                    # सिग्नल
                     action = "WAIT"
-                    color = "#2962ff"
-                    sl, tgt = 0.0, 0.0
-
+                    color = "blue"
+                    
                     if curr['EMA_9'] > curr['EMA_21']:
-                        action = "BUY 🟢"
-                        color = "#00c853" # Green
-                        sl = price - (atr * 1.5)
-                        tgt = price + (atr * 3.0)
+                        action = "BUY ZONE 🟢"
+                        color = "green"
                     elif curr['EMA_9'] < curr['EMA_21']:
-                        action = "SELL 🔴"
-                        color = "#ff3d00" # Red
-                        sl = price + (atr * 1.5)
-                        tgt = price - (atr * 3.0)
+                        action = "SELL ZONE 🔴"
+                        color = "red"
 
-                    # कार्ड (Theme Based Colors)
                     st.markdown(f"""
-                    <div style="padding: 15px; border: 2px solid {color}; border-radius: 10px; background-color: {card_bg}; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                        <h1 style="color: {color}; margin:0;">{action}</h1>
-                        <h2 style="color: {text_color}; margin:5px;">LTP: ₹{price:.2f}</h2>
-                        <div style="display: flex; justify-content: space-around; color: {text_color};">
-                            <span>🛑 SL: <b>{sl:.2f}</b></span>
-                            <span>🎯 TGT: <b>{tgt:.2f}</b></span>
-                        </div>
+                    <div style="padding:10px; border:2px solid {color}; border-radius:10px; text-align:center; background-color:{card_bg};">
+                        <h2 style="color:{color}; margin:0;">{action}</h2>
+                        <h3>LTP: {price:.2f}</h3>
                     </div>
                     """, unsafe_allow_html=True)
                     st.write("")
 
-                    # चार्ट (Dynamic Theme)
-                    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25])
+                    # --- ADVANCED CHART ---
+                    rows = 2 if show_macd else 1
+                    row_heights = [0.75, 0.25] if show_macd else [1.0]
                     
-                    # Candles
-                    fig.add_trace(go.Candlestick(
-                        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-                        name="Price", increasing_line_color='#008F4C', decreasing_line_color='#D32F2F'
-                    ), row=1, col=1)
+                    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, row_heights=row_heights, vertical_spacing=0.03)
 
-                    # EMAs
-                    fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange', width=1), name="EMA 9"), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue', width=1), name="EMA 21"), row=1, col=1)
+                    # 1. Main Candle Chart
+                    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Price"), row=1, col=1)
                     
-                    # Volume
-                    vol_colors = ['#D32F2F' if c < o else '#008F4C' for c, o in zip(df['Close'], df['Open'])]
-                    fig.add_trace(go.Bar(x=df.index, y=df['Volume'], marker_color=vol_colors, name="Volume"), row=2, col=1)
+                    if show_ema:
+                        fig.add_trace(go.Scatter(x=df.index, y=df['EMA_9'], line=dict(color='orange', width=1), name="EMA 9"), row=1, col=1)
+                        fig.add_trace(go.Scatter(x=df.index, y=df['EMA_21'], line=dict(color='blue', width=1), name="EMA 21"), row=1, col=1)
                     
-                    # Layout Update based on Theme
-                    fig.update_layout(
-                        template=chart_template, # Magic Line for Theme
-                        paper_bgcolor=bg_color,
-                        plot_bgcolor=bg_color,
-                        height=650, title=f"{symbol} Chart",
-                        xaxis_rangeslider_visible=False, showlegend=False
-                    )
-                    fig.update_xaxes(showgrid=True, gridcolor=grid_color)
-                    fig.update_yaxes(showgrid=True, gridcolor=grid_color)
-                    
+                    if show_bb:
+                        fig.add_trace(go.Scatter(x=df.index, y=df['BBU_20_2.0'], line=dict(color='gray', width=0.5), name="BB Upper"), row=1, col=1)
+                        fig.add_trace(go.Scatter(x=df.index, y=df['BBL_20_2.0'], line=dict(color='gray', width=0.5), name="BB Lower"), row=1, col=1)
+
+                    # 2. MACD Panel (Broker Style)
+                    if show_macd:
+                        fig.add_trace(go.Scatter(x=df.index, y=df['MACD_12_26_9'], line=dict(color='green', width=1), name="MACD"), row=2, col=1)
+                        fig.add_trace(go.Scatter(x=df.index, y=df['MACDs_12_26_9'], line=dict(color='red', width=1), name="Signal"), row=2, col=1)
+                        fig.add_bar(x=df.index, y=df['MACDh_12_26_9'], marker_color='gray', name="Hist", row=2, col=1)
+
+                    fig.update_layout(template=chart_theme, height=700, xaxis_rangeslider_visible=False, showlegend=False, margin=dict(l=10, r=10, t=30, b=10))
                     st.plotly_chart(fig, use_container_width=True)
 
             except Exception as e: st.error(f"Error: {e}")
 
 # ==========================================
-# TAB 2: स्मार्ट ऑप्शन कैलकुलेटर
+# TAB 2: स्मार्ट ऑप्शन & मार्केट मूड (New)
 # ==========================================
 with tab2:
-    st.header("🎯 ऑप्शन स्ट्राइक & प्रीमियम")
-    if st.button("ऑप्शन डेटा निकालें 🎲"):
-        with st.spinner('Calculating...'):
-            try:
-                df = yf.Ticker(symbol).history(period="5d", interval="5m")
-                if df.empty: st.error("No Data")
-                else:
-                    curr = df.iloc[-1]
-                    spot = float(curr['Close'])
-                    
-                    # Trend
-                    df['EMA_9'] = df.ta.ema(length=9)
-                    df['EMA_21'] = df.ta.ema(length=21)
-                    last = df.iloc[-1]
-                    
-                    trend = "SIDEWAYS"
-                    if last['EMA_9'] > last['EMA_21']: trend = "UPTREND"
-                    elif last['EMA_9'] < last['EMA_21']: trend = "DOWNTREND"
+    st.header("🎯 ऑप्शन चेन & मार्केट मूड")
+    if st.button("एनालिसिस करें 🎲", key="opt"):
+        try:
+            df = yf.Ticker(symbol).history(period="5d", interval="5m")
+            if df.empty: st.error("No Data")
+            else:
+                spot = df['Close'].iloc[-1]
+                gap = 100 if "BANK" in symbol else 50
+                atm = round(spot / gap) * gap
+                
+                # --- MARKET MOOD METER (RSI Based) ---
+                rsi = df.ta.rsi(length=14).iloc[-1]
+                mood = "Neutral"
+                mood_col = "orange"
+                if rsi > 60: 
+                    mood = "SUPER BULLISH (तेजी)"
+                    mood_col = "green"
+                elif rsi < 40: 
+                    mood = "SUPER BEARISH (मंदी)"
+                    mood_col = "red"
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"""
+                    <div style="padding:15px; background-color:{card_bg}; border-left: 5px solid {mood_col}; border-radius:5px;">
+                        <h4>📢 Market Mood</h4>
+                        <h2 style="color:{mood_col};">{mood}</h2>
+                        <p>RSI Strength: {rsi:.2f}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    rec = "CALL (CE)" if rsi > 50 else "PUT (PE)"
+                    buy_price = spot * 0.005 + 10 # Estimated
+                    st.markdown(f"""
+                    <div style="padding:15px; background-color:{card_bg}; border-left: 5px solid {mood_col}; border-radius:5px;">
+                        <h4>🎯 Strike Selection</h4>
+                        <h2>{atm} {rec}</h2>
+                        <p>Buy Above: ₹{buy_price:.2f}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    gap = 100 if "BANK" in symbol else 50
-                    atm = round(spot / gap) * gap
-                    
-                    rec, col = "WAIT", "gray"
-                    est_prem = spot * 0.006
+                st.info("💡 **Tip:** अगर Mood 'Super Bullish' है तो Put के बारे में सोचें भी मत। सिर्फ Call के मौके ढूँढें।")
 
-                    if trend == "UPTREND":
-                        rec = "BUY CALL (CE)"
-                        col = "green"
-                    elif trend == "DOWNTREND":
-                        rec = "BUY PUT (PE)"
-                        col = "red"
-
-                    buy_above = est_prem + 5
-
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric("SPOT PRICE", f"{spot:.2f}")
-                        st.info(f"ATM: {atm}")
-                    with col2:
-                        if col != "gray":
-                            st.markdown(f"""
-                            <div style="padding:10px; border:2px solid {col}; border-radius:10px; text-align:center; background-color:{card_bg}; color:{text_color};">
-                                <h3 style="color:{col}; margin:0;">{rec}</h3>
-                                <h2>Strike: {atm}</h2>
-                                <p>Buy Above: <b>₹{buy_above:.2f}</b></p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        else:
-                            st.warning("मार्केट साइडवेज है।")
-
-            except Exception as e: st.error(str(e))
+        except: st.error("Error")
 
 # ==========================================
-# TAB 3: कैंडल ज्ञान (Theme Adaptive)
+# TAB 3: 32 कैंडलस्टिक लाइब्रेरी (Images + Hindi)
 # ==========================================
 with tab3:
-    st.header("📚 कैंडलस्टिक पैटर्न")
-    
-    # Theme के हिसाब से कार्ड का कलर
-    info_bg = "#262730" if "Dark" in theme_choice else "#e3f2fd"
-    info_text = "white" if "Dark" in theme_choice else "black"
+    st.header("📚 32 महत्वपूर्ण कैंडलस्टिक पैटर्न (हिंदी में)")
+    st.markdown("ट्रेडिंग में ये 32 कैंडल्स सबसे ज्यादा काम आती हैं। इन्हें पहचानें:")
 
-    patterns = [
-        {"name": "Hammer 🔨", "type": "Bullish", "desc": "गिरावट के बाद बनता है, तेजी का संकेत।"},
-        {"name": "Shooting Star 🌠", "type": "Bearish", "desc": "तेजी के बाद बनता है, मंदी का संकेत।"},
-        {"name": "Bullish Engulfing 📈", "type": "Strong Buy", "desc": "हरी कैंडल ने लाल को खा लिया।"},
-        {"name": "Bearish Engulfing 📉", "type": "Strong Sell", "desc": "लाल कैंडल ने हरी को खा लिया।"}
+    # 32 Candles Database
+    candles = [
+        {"name": "Hammer (हथौड़ा)", "type": "Bullish", "desc": "गिरावट के बाद बनता है। नीचे से रिजेक्शन मिलता है। तेजी का संकेत।"},
+        {"name": "Inverted Hammer", "type": "Bullish", "desc": "उल्टा हथौड़ा। डाउनट्रेंड के नीचे बनता है। बायर्स एक्टिव हो रहे हैं।"},
+        {"name": "Bullish Engulfing", "type": "Strong Buy", "desc": "छोटी लाल कैंडल को बड़ी हरी कैंडल पूरा खा जाती है।"},
+        {"name": "Piercing Line", "type": "Bullish", "desc": "लाल कैंडल के बाद हरी कैंडल जो उसके 50% के ऊपर बंद हो।"},
+        {"name": "Morning Star", "type": "Bullish Reversal", "desc": "3 कैंडल का सेट: लाल, छोटी, फिर हरी। यह बॉटम बनने का पक्का सबूत है।"},
+        {"name": "Three White Soldiers", "type": "Strong Bullish", "desc": "लगातार 3 हरी कैंडल्स। बहुत मजबूत अपट्रेंड।"},
+        {"name": "Bullish Harami", "type": "Bullish", "desc": "बड़ी लाल कैंडल के अंदर छोटी हरी कैंडल (गर्भवती महिला जैसा)।"},
+        {"name": "Tweezer Bottom", "type": "Bullish", "desc": "दो कैंडल्स जिनका Low बिल्कुल समान हो। सपोर्ट मिल गया है।"},
+        {"name": "Marubozu Green", "type": "Super Bullish", "desc": "बिना डंडी की बड़ी हरी कैंडल। एकतरफा खरीदारी।"},
+        {"name": "Dragonfly Doji", "type": "Bullish", "desc": "'T' जैसा दिखता है। गिरावट खत्म होने वाली है।"},
+        
+        {"name": "Shooting Star", "type": "Bearish", "desc": "तेजी के बाद ऊपर बनता है। ऊपर से रिजेक्शन (बिकवाली) आई है।"},
+        {"name": "Hanging Man", "type": "Bearish", "desc": "अपट्रेंड के ऊपर हथौड़ा जैसा। यह खतरे की घंटी है, मार्केट गिरेगा।"},
+        {"name": "Bearish Engulfing", "type": "Strong Sell", "desc": "छोटी हरी कैंडल को बड़ी लाल कैंडल पूरा खा जाती है।"},
+        {"name": "Dark Cloud Cover", "type": "Bearish", "desc": "हरी कैंडल के बाद लाल कैंडल जो उसके 50% के नीचे बंद हो।"},
+        {"name": "Evening Star", "type": "Bearish Reversal", "desc": "3 कैंडल: हरी, छोटी, फिर लाल। टॉप बनने का संकेत।"},
+        {"name": "Three Black Crows", "type": "Strong Bearish", "desc": "लगातार 3 लाल कैंडल्स। बहुत मजबूत डाउनट्रेंड।"},
+        {"name": "Bearish Harami", "type": "Bearish", "desc": "बड़ी हरी कैंडल के अंदर छोटी लाल कैंडल।"},
+        {"name": "Tweezer Top", "type": "Bearish", "desc": "दो कैंडल्स जिनका High बिल्कुल समान हो। रेजिस्टेंस बन गया है।"},
+        {"name": "Marubozu Red", "type": "Super Bearish", "desc": "बिना डंडी की बड़ी लाल कैंडल। एकतरफा बिकवाली।"},
+        {"name": "Gravestone Doji", "type": "Bearish", "desc": "उल्टा 'T' जैसा। तेजी खत्म होने वाली है।"},
+
+        {"name": "Doji (Standard)", "type": "Neutral", "desc": "जहाँ खुला वहीं बंद हुआ। मार्केट कन्फ्यूज है।"},
+        {"name": "Spinning Top", "type": "Neutral", "desc": "लट्टू जैसा। छोटी बॉडी, दोनों तरफ डंडी।"},
+        {"name": "High Wave", "type": "Volatile", "desc": "बहुत लंबी डंडियां और छोटी बॉडी। मार्केट में हलचल है पर दिशा नहीं।"},
+        {"name": "Falling Three Methods", "type": "Continuation (Bearish)", "desc": "एक बड़ी लाल, फिर 3 छोटी हरी, फिर बड़ी लाल। गिरावट जारी रहेगी।"},
+        {"name": "Rising Three Methods", "type": "Continuation (Bullish)", "desc": "एक बड़ी हरी, फिर 3 छोटी लाल, फिर बड़ी हरी। तेजी जारी रहेगी।"},
+        {"name": "Tasuki Gap Up", "type": "Bullish", "desc": "गैप के साथ खुलने के बाद भी मार्केट ऊपर जाए।"},
+        {"name": "Tasuki Gap Down", "type": "Bearish", "desc": "गैप के साथ नीचे खुलने के बाद और नीचे जाए।"},
+        {"name": "Mat Hold", "type": "Bullish", "desc": "बड़ी हरी कैंडल के बाद छोटी गिरावट, फिर ब्रेकआउट।"},
+        {"name": "On Neck Line", "type": "Bearish", "desc": "गिरावट में एक छोटी हरी कैंडल जो पिछली लाल के लो पर बंद हो।"},
+        {"name": "Long Legged Doji", "type": "Indecision", "desc": "बहुत लंबी डंडियां। बायर्स और सेलर्स की बराबर लड़ाई।"},
+        {"name": "Abandoned Baby (Top)", "type": "Reversal", "desc": "गैप के साथ बना डोजी जो वापिस नीचे गैप से गिरे।"},
+        {"name": "Abandoned Baby (Bottom)", "type": "Reversal", "desc": "नीचे गैप के साथ बना डोजी जो वापिस ऊपर गैप से उठे।"}
     ]
-    
-    for pat in patterns:
-        st.markdown(f"""
-        <div style="background-color: {info_bg}; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
-            <h4 style="color: {info_text}; margin:0;">{pat['name']}</h4>
-            <p style="color: {info_text};">{pat['desc']}</p>
-        </div>
-        """, unsafe_allow_html=True)
+
+    # ग्रिड लेआउट (Grid Layout)
+    cols = st.columns(3)
+    for i, c in enumerate(candles):
+        color = "green" if "Bullish" in c['type'] or "Buy" in c['type'] else "red" if "Bearish" in c['type'] or "Sell" in c['type'] else "orange"
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div style="border:1px solid #ddd; padding:10px; margin-bottom:10px; border-radius:10px; background-color:{card_bg};">
+                <h4 style="margin:0;">{c['name']}</h4>
+                <span style="color:{color}; font-weight:bold;">{c['type']}</span>
+                <hr style="margin:5px 0;">
+                <p style="font-size:13px;">{c['desc']}</p>
+                <div style="text-align:center; font-size:40px;">{'📈' if color=='green' else '📉' if color=='red' else '⚖️'}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
 # ==========================================
-# TAB 4: AI गुरुजी
+# TAB 4: AI
 # ==========================================
 with tab4:
     st.header("🤖 AI गुरुजी")
-    if prompt := st.chat_input("पूछें..."):
+    if prompt := st.chat_input("सवाल पूछें..."):
         st.chat_message("user").markdown(prompt)
         try:
             res = model.generate_content(prompt)
